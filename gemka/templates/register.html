@@ -1,1 +1,27 @@
-
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Регистрация</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #1a1a2e; color: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .auth-card { background: #161623; padding: 40px; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); width: 100%; max-width: 360px; text-align: center; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 6px; border: 1px solid #334; background: #0f0f1a; color: #fff; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #4e54c8; border: none; border-radius: 6px; color: #fff; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #6469ff; }
+        a { color: #8f94fb; text-decoration: none; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="auth-card">
+        <h2>Регистрация</h2>
+        <form method="POST">
+            <input type="text" name="nickname" placeholder="Имя (Никнейм)" required>
+            <input type="text" name="username" placeholder="Уникальный юзернейм (@username)" required>
+            <input type="password" name="password" placeholder="Надежный пароль" required>
+            <button type="submit">Создать аккаунт</button>
+        </form>
+        <p style="margin-top:20px;"><a href="/login">Уже есть аккаунт? Войти</a></p>
+    </div>
+</body>
+</html>
