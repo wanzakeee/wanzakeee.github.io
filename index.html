@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мессенджер</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- Экран авторизации -->
+        <div id="auth-screen" class="screen">
+            <div class="auth-container">
+                <h1>Вход в мессенджер</h1>
+                <form id="auth-form">
+                    <input type="email" id="email" placeholder="Email" required>
+                    <input type="password" id="password" placeholder="Пароль" required>
+                    <button type="submit">Войти</button>
+                </form>
+                <p>Нет аккаунта? <a href="#" id="show-register">Зарегистрироваться</a></p>
+            </div>
+        </div>
+
+        <!-- Экран регистрации -->
+        <div id="register-screen" class="screen" style="display: none;">
+            <div class="auth-container">
+                <h1>Регистрация</h1>
+                <form id="register-form">
+                    <input type="text" id="reg-username" placeholder="Имя пользователя" required>
+                    <input type="email" id="reg-email" placeholder="Email" required>
+                    <input type="password" id="reg-password" placeholder="Пароль" required>
+                    <button type="submit">Зарегистрироваться</button>
+                </form>
+                <p>Уже есть аккаунт? <a href="#" id="show-auth">Войти</a></p>
+            </div>
+        </div>
+
+        <!-- Основной экран мессенджера -->
+        <div id="chat-screen" class="screen" style="display: none;">
+            <div class="chat-container">
+                <!-- Сайдбар с контактами -->
+                <div class="sidebar">
+                    <div class="user-header">
+                        <h2 id="current-user"></h2>
+                        <button id="logout-btn">Выйти</button>
+                    </div>
+                    <div class="search-box">
+                        <input type="text" id="user-search" placeholder="Поиск пользователей...">
+                    </div>
+                    <div class="contacts-list" id="contacts-list"></div>
+                </div>
+
+                <!-- Область чата -->
+                <div class="main-chat">
+                    <div class="chat-header" id="chat-header">
+                        <p>Выберите чат</p>
+                    </div>
+                    <div class="messages-container" id="messages-container">
+                        <div class="no-chat-selected">Выберите контакт для начала общения</div>
+                    </div>
+                    <div class="message-input">
+                        <input type="text" id="message-input" placeholder="Введите сообщение..." disabled>
+                        <button id="send-message" disabled>Отправить</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="supabase-config.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
