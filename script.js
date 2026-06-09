@@ -5,6 +5,7 @@ class Messenger {
         this.contacts = [];
         this.messages = [];
         this.subscription = null;
+        this.supabase = window.supabaseClient;
         
         this.init();
     }
@@ -12,8 +13,14 @@ class Messenger {
     async init() {
         console.log('🚀 Запуск мессенджера...');
         
+        if (!this.supabase) {
+            console.error('❌ Supabase не инициализирован! Проверь supabase-config.js');
+            alert('Ошибка: Supabase не подключен. Проверь конфигурацию.');
+            return;
+        }
+        
         try {
-            const { data: { session }, error } = await supabase.auth.getSession();
+            const { data: { session }, error } = await this.supabase.auth.getSession();
             console.log('📡 Сессия:', session);
             
             if (error) {
@@ -51,6 +58,8 @@ class Messenger {
                 console.log('📝 Переход на регистрацию');
                 this.showRegisterScreen();
             });
+        } else {
+            console.error('❌ Элемент show-register не найден');
         }
         
         if (showAuth) {
@@ -59,6 +68,8 @@ class Messenger {
                 console.log('🔑 Переход на авторизацию');
                 this.showAuthScreen();
             });
+        } else {
+            console.error('❌ Элемент show-auth не найден');
         }
 
         // Форма авторизации
@@ -121,7 +132,9 @@ class Messenger {
     }
 
     setupAuthListener() {
-        supabase.auth.onAuthStateChange(async (event, session) => {
+        if (!this.supabase) return;
+        
+        this.supabase.auth.onAuthStateChange(async (event, session) => {
             console.log('🔄 Изменение состояния аутентификации:', event);
             
             if (event === 'SIGNED_IN') {
@@ -134,7 +147,7 @@ class Messenger {
                 this.currentUser = null;
                 this.selectedContact = null;
                 if (this.subscription) {
-                    supabase.removeChannel(this.subscription);
+                    this.supabase.removeChannel(this.subscription);
                     this.subscription = null;
                 }
                 this.showAuthScreen();
@@ -143,8 +156,21 @@ class Messenger {
     }
 
     async login() {
-        const email = document.getElementById('email').value.trim();
-        const password = document.getElementById('password').value;
+        if (!this.supabase) {
+            alert('Supabase не подключен!');
+            return;
+        }
+        
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        
+        if (!emailInput || !passwordInput) {
+            console.error('❌ Поля ввода не найдены');
+            return;
+        }
+        
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
 
         console.log('🔑 Пытаемся войти:', email);
 
@@ -153,8 +179,14 @@ class Messenger {
             return;
         }
 
+        // Блокируем кнопку
+        const loginBtn = document.querySelector('#auth-form button');
+        const originalText = loginBtn.textContent;
+        loginBtn.disabled = true;
+        loginBtn.textContent = 'Вход...';
+
         try {
-            const { data, error } = await supabase.auth.signInWithPassword({
+            const { data, error } = await this.supabase.auth.signInWithPassword({
                 email,
                 password
             });
@@ -168,13 +200,30 @@ class Messenger {
         } catch (error) {
             console.error('❌ Критическая ошибка входа:', error);
             alert('Произошла ошибка при входе');
+        } finally {
+            loginBtn.disabled = false;
+            loginBtn.textContent = originalText;
         }
     }
 
     async register() {
-        const username = document.getElementById('reg-username').value.trim();
-        const email = document.getElementById('reg-email').value.trim();
-        const password = document.getElementById('reg-password').value;
+        if (!this.supabase) {
+            alert('Supabase не подключен!');
+            return;
+        }
+        
+        const usernameInput = document.getElementById('reg-username');
+        const emailInput = document.getElementById('reg-email');
+        const passwordInput = document.getElementById('reg-password');
+        
+        if (!usernameInput || !emailInput || !passwordInput) {
+            console.error('❌ Поля регистрации не найдены');
+            return;
+        }
+        
+        const username = usernameInput.value.trim();
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
 
         console.log('📝 Регистрация пользователя:', { username, email });
 
@@ -202,7 +251,7 @@ class Messenger {
 
         try {
             // Регистрируем пользователя
-            const { data, error } = await supabase.auth.signUp({
+            const { data, error } = await this.supabase.auth.signUp({
                 email: email,
                 password: password,
                 options: {
@@ -226,7 +275,7 @@ class Messenger {
                 for (let i = 0; i < 3; i++) {
                     console.log(`🔄 Попытка создания профиля #${i + 1}`);
                     
-                    const { error: profileError } = await supabase
+                    const { error: profileError } = await this.supabase
                         .from('profiles')
                         .upsert({
                             id: data.user.id,
@@ -242,7 +291,7 @@ class Messenger {
                         break;
                     }
                     
-                    console.log(`⏳ Ожидание перед повторной попыткой...`);
+                    console.log(`Ошибка: ${profileError.message}. Ждем...`);
                     await new Promise(resolve => setTimeout(resolve, 1000));
                 }
 
@@ -251,9 +300,9 @@ class Messenger {
                     this.showAuthScreen();
                     
                     // Очищаем поля
-                    document.getElementById('reg-username').value = '';
-                    document.getElementById('reg-email').value = '';
-                    document.getElementById('reg-password').value = '';
+                    usernameInput.value = '';
+                    emailInput.value = '';
+                    passwordInput.value = '';
                 } else {
                     alert('Регистрация прошла успешно, но возникла проблема с профилем. Попробуйте войти.');
                     this.showAuthScreen();
@@ -269,12 +318,12 @@ class Messenger {
     }
 
     async loadProfile() {
-        if (!this.currentUser) return;
+        if (!this.currentUser || !this.supabase) return;
 
         console.log('👤 Загрузка профиля...');
 
         try {
-            const { data: profile, error } = await supabase
+            const { data: profile, error } = await this.supabase
                 .from('profiles')
                 .select('*')
                 .eq('id', this.currentUser.id)
@@ -286,7 +335,7 @@ class Messenger {
                 // Если профиль не найден, создаем его
                 if (error.code === 'PGRST116') {
                     console.log('🔄 Профиль не найден, создаем новый...');
-                    const { error: insertError } = await supabase
+                    const { error: insertError } = await this.supabase
                         .from('profiles')
                         .insert({
                             id: this.currentUser.id,
@@ -317,12 +366,12 @@ class Messenger {
     }
 
     async loadContacts() {
-        if (!this.currentUser) return;
+        if (!this.currentUser || !this.supabase) return;
 
         console.log('📇 Загрузка контактов...');
 
         try {
-            const { data: profiles, error } = await supabase
+            const { data: profiles, error } = await this.supabase
                 .from('profiles')
                 .select('*')
                 .neq('id', this.currentUser.id);
@@ -343,13 +392,15 @@ class Messenger {
     async searchUsers(query) {
         console.log('🔍 Поиск пользователей:', query);
         
+        if (!this.supabase || !this.currentUser) return;
+        
         if (!query.trim()) {
             await this.loadContacts();
             return;
         }
 
         try {
-            const { data: profiles, error } = await supabase
+            const { data: profiles, error } = await this.supabase
                 .from('profiles')
                 .select('*')
                 .neq('id', this.currentUser.id)
@@ -377,7 +428,7 @@ class Messenger {
         contactsList.innerHTML = '';
 
         if (this.contacts.length === 0) {
-            contactsList.innerHTML = '<div class="no-chat-selected">Пользователи не найдены</div>';
+            contactsList.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">Пользователи не найдены</div>';
             return;
         }
 
@@ -412,36 +463,29 @@ class Messenger {
     async selectContact(contact) {
         this.selectedContact = contact;
         
-        // Обновляем заголовок чата
         const chatHeader = document.getElementById('chat-header');
         if (chatHeader) {
             chatHeader.innerHTML = `<p>${contact.username || 'Без имени'}</p>`;
         }
         
-        // Активируем поле ввода
         const messageInput = document.getElementById('message-input');
         const sendMessage = document.getElementById('send-message');
         
         if (messageInput) messageInput.disabled = false;
         if (sendMessage) sendMessage.disabled = false;
         
-        // Обновляем активный контакт в списке
         this.renderContacts();
-        
-        // Загружаем сообщения
         await this.loadMessages();
-        
-        // Подписываемся на новые сообщения
         this.subscribeToMessages();
     }
 
     async loadMessages() {
-        if (!this.currentUser || !this.selectedContact) return;
+        if (!this.currentUser || !this.selectedContact || !this.supabase) return;
 
         console.log('💬 Загрузка сообщений...');
 
         try {
-            const { data: messages, error } = await supabase
+            const { data: messages, error } = await this.supabase
                 .from('messages')
                 .select('*')
                 .or(`and(sender_id.eq.${this.currentUser.id},receiver_id.eq.${this.selectedContact.id}),and(sender_id.eq.${this.selectedContact.id},receiver_id.eq.${this.currentUser.id})`)
@@ -489,8 +533,13 @@ class Messenger {
                 minute: '2-digit'
             });
 
+            // Безопасный вывод текста
+            const div = document.createElement('div');
+            div.textContent = message.content;
+            const safeContent = div.innerHTML;
+
             messageElement.innerHTML = `
-                ${this.escapeHtml(message.content)}
+                ${safeContent}
                 <div class="message-time">${time}</div>
             `;
 
@@ -501,13 +550,9 @@ class Messenger {
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
     async sendMessage() {
+        if (!this.supabase) return;
+        
         const messageInput = document.getElementById('message-input');
         if (!messageInput) return;
 
@@ -520,8 +565,15 @@ class Messenger {
 
         console.log('📤 Отправка сообщения:', content);
 
+        // Блокируем кнопку отправки
+        const sendBtn = document.getElementById('send-message');
+        if (sendBtn) {
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Отправка...';
+        }
+
         try {
-            const { data, error } = await supabase
+            const { data, error } = await this.supabase
                 .from('messages')
                 .insert([
                     {
@@ -543,14 +595,21 @@ class Messenger {
         } catch (error) {
             console.error('❌ Критическая ошибка отправки:', error);
             alert('Произошла ошибка при отправке сообщения');
+        } finally {
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Отправить';
+            }
         }
     }
 
     subscribeToMessages() {
+        if (!this.supabase) return;
+        
         // Отписываемся от предыдущей подписки
         if (this.subscription) {
             console.log('🔌 Отключение от предыдущего канала');
-            supabase.removeChannel(this.subscription);
+            this.supabase.removeChannel(this.subscription);
         }
 
         if (!this.selectedContact) return;
@@ -558,8 +617,8 @@ class Messenger {
         console.log('📡 Подписка на real-time сообщения');
 
         // Подписываемся на новые сообщения в реальном времени
-        this.subscription = supabase
-            .channel('messages-channel')
+        this.subscription = this.supabase
+            .channel('messages-channel-' + Date.now())
             .on(
                 'postgres_changes',
                 {
@@ -570,7 +629,10 @@ class Messenger {
                 },
                 (payload) => {
                     console.log('📨 Новое сообщение:', payload);
-                    this.loadMessages();
+                    // Проверяем, что сообщение от выбранного контакта
+                    if (payload.new.sender_id === this.selectedContact.id) {
+                        this.loadMessages();
+                    }
                 }
             )
             .subscribe((status) => {
@@ -579,10 +641,12 @@ class Messenger {
     }
 
     async logout() {
+        if (!this.supabase) return;
+        
         console.log('👋 Выход из системы...');
         
         try {
-            const { error } = await supabase.auth.signOut();
+            const { error } = await this.supabase.auth.signOut();
             
             if (error) {
                 console.error('❌ Ошибка выхода:', error);
@@ -597,38 +661,28 @@ class Messenger {
 
     showAuthScreen() {
         console.log('📱 Показываем экран авторизации');
-        
-        const authScreen = document.getElementById('auth-screen');
-        const registerScreen = document.getElementById('register-screen');
-        const chatScreen = document.getElementById('chat-screen');
-        
-        if (authScreen) authScreen.style.display = 'flex';
-        if (registerScreen) registerScreen.style.display = 'none';
-        if (chatScreen) chatScreen.style.display = 'none';
+        this.showScreen('auth-screen');
     }
 
     showRegisterScreen() {
         console.log('📱 Показываем экран регистрации');
-        
-        const authScreen = document.getElementById('auth-screen');
-        const registerScreen = document.getElementById('register-screen');
-        const chatScreen = document.getElementById('chat-screen');
-        
-        if (authScreen) authScreen.style.display = 'none';
-        if (registerScreen) registerScreen.style.display = 'flex';
-        if (chatScreen) chatScreen.style.display = 'none';
+        this.showScreen('register-screen');
     }
 
     showChatScreen() {
         console.log('📱 Показываем экран чата');
-        
-        const authScreen = document.getElementById('auth-screen');
-        const registerScreen = document.getElementById('register-screen');
-        const chatScreen = document.getElementById('chat-screen');
-        
-        if (authScreen) authScreen.style.display = 'none';
-        if (registerScreen) registerScreen.style.display = 'none';
-        if (chatScreen) chatScreen.style.display = 'block';
+        this.showScreen('chat-screen');
+    }
+    
+    showScreen(screenId) {
+        const screens = ['auth-screen', 'register-screen', 'chat-screen'];
+        screens.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.style.display = id === screenId ? 
+                    (id === 'chat-screen' ? 'block' : 'flex') : 'none';
+            }
+        });
     }
 }
 
@@ -638,5 +692,4 @@ document.addEventListener('DOMContentLoaded', () => {
     window.messenger = new Messenger();
 });
 
-// Для отладки - глобальный доступ к экземпляру
-console.log('🔧 Для отладки используй window.messenger');
+console.log('🔧 Скрипт загружен. Для отладки используй window.messenger');
